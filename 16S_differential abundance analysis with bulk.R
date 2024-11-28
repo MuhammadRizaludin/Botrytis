@@ -12,7 +12,7 @@ library(phyloseq)
 ##load phyloseq object non-rarified
 physeq_filtered
 
-##subset data 1
+##subset data 1 (bulk vs rhizosphere of healthy S.pimpinellifolium (Rh_CBM)
 (da1<-subset_samples(physeq_filtered, G_T_C%in% c("0_B", "1_SP_H_RH")))
 metadata_da1 <- as(sample_data(da1), "data.frame")
 
