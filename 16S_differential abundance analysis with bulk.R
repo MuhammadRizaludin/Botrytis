@@ -12,7 +12,7 @@ library(phyloseq)
 ##load phyloseq object non-rarified
 physeq_filtered
 
-##subset data 1 (bulk vs rhizosphere of healthy S.pimpinellifolium (Rh_CBM)
+##subset data 1 (bulk vs rhizosphere of healthy S.pimpinellifolium (Rh_CBP)
 (da1<-subset_samples(physeq_filtered, G_T_C%in% c("0_B", "1_SP_H_RH")))
 metadata_da1 <- as(sample_data(da1), "data.frame")
 
@@ -28,7 +28,7 @@ sigtab_da1 = res_da1[which(res_da1$padj< alpha), ]
 sigtab_da1 = sigtab_da1[which(sigtab_da1$log2FoldChange < 0), ]
 sigtab_da1 = cbind(as(sigtab_da1, "data.frame"), as(phyloseq::tax_table(da1)[rownames(sigtab_da1), ], "matrix"))
 
-##subset data 2
+##subset data 2 (bulk vs rhizosphere of healthy S.pimpinellifolium (Rh_CBM)
 (da2<-subset_samples(physeq_filtered, G_T_C%in% c("0_B", "2_SL_H_RH")))
 metadata_da2 <- as(sample_data(da2), "data.frame")
 
