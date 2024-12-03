@@ -1,0 +1,106 @@
+##set working directory
+setwd("D:/Botrytis stress/ITS amplicon")
+getwd()
+
+#load library
+library(tidyverse)
+library(MicrobiotaProcess)
+library(emmeans)
+library(ggpubr)
+library(rstatix)
+
+##load the phyloseq (rarified filtered)
+ITS_rarified <-readRDS("D:/Botrytis stress/ITS amplicon/ITS_filtered_rarefied1.rds")
+
+##calculating alpha diversity index 
+alphaobj_ITS <- get_alphaindex(ITS_rarified)##calculating all alpha diversity indexes
+head(as.data.frame(alphaobj_ITS)) ##sneakpeek into the data
+
+##create dataframe
+df_alpha_ITS <- as.data.frame(alphaobj_ITS)
+
+##choose specific diversity indexes
+df_alpha_ITS1 <-df_alpha_ITS[,c("Shannon","Simpson","Observe", "Chao1", "ACE", "Pielou")]
+head(as.data.frame(df_alpha_ITS1))
+
+##assign to new name
+AD_ITS <- data.frame(df_alpha_ITS1) 
+AD_ITS_1 <- tibble::rownames_to_column(AD_ITS, "code")
+head(AD_ITS_1)
+
+##write csv file
+write.csv(AD_ITS_1, "D:/Botrytis stress/ITS amplicon/ITS_alpha_rarified1.csv", row.names=FALSE)
+
+#load sample table to get the metadata
+samples_df <- read.table("metadata_ITS1.txt", sep="\t", header = TRUE)
+head(samples_df)
+list(samples_df)
+
+# merge data.frames with bulk soil
+merged_ITS <- tibble::rownames_to_column(samples_df, "t") #samples_df from phyloseq construct
+sample_df1<-merged_ITS[,-1]
+merged_df1<-merge(sample_df1, AD_ITS_1, by = "code")
+write.csv(merged_df1, "D:/Botrytis stress/Botrytis stress microbiome/result/alpha_ITS_withsoil.csv", row.names=FALSE)
+
+
+# boxplot with bulk soil (Shannon index)
+merged_df1_reord<-merged_df1
+merged_df1_reord$G_T_C <- factor(merged_df1_reord$G_T_C, 
+                                 levels = c("0_B", "1_SP_H_RH", "2_SL_H_RH", "5_SP_S_RH", "6_SL_S_RH",
+                                            "3_SP_H_RP", "4_SL_H_RP", "7_SP_S_RP", "8_SL_S_RP"),
+                                 labels = c("bulk", "healthy_pimpi", "healthy_money","stressed_pimpi", "stressed_money", "healthy_pimpi",
+                                            "healthy_money", "stressed_pimpi", "stressed_money"))
+
+merged_df1_reord1<-merged_df1_reord
+merged_df1_reord1$compartment <- factor(merged_df1_reord1$compartment, 
+                                        levels = c("0_bulk_unplanted", "1_rhizosphere","2_rhizoplane"),
+                                        labels = c("bulk", "rhizosphere", "rhizoplane"))
+
+
+##shannon index_merged
+ggplot(merged_df1_reord1, aes(x=compartment, y=Shannon, fill=compartment)) +
+  geom_boxplot(width=0.50, alpha=0.85, outlier.shape = NA) + ylim(2.5, 3.8) +
+  labs(x = NULL, y = "Shannon Index") +
+  scale_fill_manual(values = c("#994F00","#40B0A6", "#5D3A9B"))+
+  theme(panel.background = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_rect(color = "black", fill = NA, size=1.2),
+        axis.text.x = element_text(size = 11, face = "bold", hjust = 0.5),
+        axis.text.y = element_text(size = 11, face = "bold"),
+        axis.title.y = element_text(face = "bold"),
+        strip.text = element_text(size = 11),
+        legend.position = "none")
+
+
+##shannon index regroup treatment within each compartment
+ggplot(merged_df1_reord1, aes(x=G_T_C, y=Shannon, fill=compartment)) +
+  geom_boxplot(width=0.60, alpha=0.85, outlier.shape = NA) + ylim(2.5, 3.8) +
+  labs(x = NULL, y = "Shannon Index") +
+  scale_fill_manual(values = c("#994F00","#40B0A6", "#5D3A9B"))+
+  facet_grid(. ~ compartment, scales = "free_x") +
+  theme(panel.background = element_blank(),
+        panel.grid = element_blank(),
+        panel.border = element_rect(color = "black", fill = NA),
+        axis.text.x = element_text(size = 9, face = "bold", angle=35, hjust = 0.95),
+        axis.text.y = element_text(size = 11, face = "bold"),
+        axis.title.y = element_text(face = "bold"),
+        strip.text = element_text(size = 11),
+      legend.position = "none")
+
+
+#Compute the analysis of variance
+res.aov_compartment <- aov(Shannon ~ compartment, data = merged_df1_reord1)
+
+# Summary of the analysis
+summary(res.aov_compartment)##no significant
+TukeyHSD(res.aov_compartment)
+
+#test homogeneity of variances
+model1_ITS  <- lm(Shannon ~  compartment*genotype*treatment, data=merged_df1_reord1)
+ggqqplot(residuals(model1_ITS))
+shapiro_test(residuals(model1_ITS)) ## homogeneity of variances assumption that is not met
+levene_test(Shannon ~  compartment*genotype*treatment, data=merged_df1_reord1)
+
+##ANOVA for the homogeneity of variances assumption that is not met. 
+anova_result <- oneway.test(Shannon ~ compartment*genotype*treatment, data = merged_df1_reord1, var.equal = FALSE)
+print(anova_result)
