@@ -1,0 +1,29 @@
+##construct relative abundance ITS all data
+##another way of having relative abundance using microbiome package (with better color)
+ps_ITS <- ITS_filtered  ##filtered ITS phyloseq object
+
+
+library(microbiome)
+##stacked bar at phylum  level (phyla with at least 0.1% relabund)
+ps.rel_ITS <- microbiome::transform(ps_ITS, "compositional")
+ps.fam.rel_ITS <-aggregate_rare(ps.rel_ITS, level = "Phylum", detection =, 0.01, prevalence = 0.1)
+p_ITS <- plot_composition(ps.fam.rel_ITS,group_by="compartment", average_by = "G_T_C") + 
+  guides(fill = guide_legend(ncol = 1)) + 
+  labs(x = "", 
+       y = "Relative abundance",
+       title = "ITS Relative abundance data") 
+p1_ITS <- print(p_ITS + scale_fill_brewer("Phylum", palette = "Paired") + theme_bw()) +
+  theme(axis.text.x = element_text(size= 7, face= "bold", angle =45,  hjust = 1)) 
+
+##change the naming to make it more tidy
+p2_ITS <- p1_ITS + scale_x_discrete(breaks=c('0_B','1_SP_H_RH','2_SL_H_RH',
+                                     '5_SP_S_RH','6_SL_S_RH','3_SP_H_RP',
+                                     '4_SL_H_RP', '7_SP_S_RP', '8_SL_S_RP'),
+                            labels = c("bulk", "healthy_pimpi", "healthy_money", "stressed_pimpi", "stressed_money",
+                                       "healthy_pimpi", "healthy_money", "stressed_pimpi", "stressed_money")) +
+  theme_bw() + theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+                     axis.text.x = element_text(face= "bold", color="black", size= 10, angle = 30, hjust = 0.8),
+                     axis.text.y = element_text(face= "bold", color="black", size= 10, hjust = 0.8),
+                     legend.text = element_text(face= "bold", color="black", size= 10),
+                     strip.text.x = element_text(size = 9, face = "bold"),
+                     panel.grid.minor = element_blank(), axis.line = element_line(colour = "black")) 
