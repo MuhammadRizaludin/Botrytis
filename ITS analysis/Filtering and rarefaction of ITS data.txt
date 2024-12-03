@@ -1,0 +1,32 @@
+#Filtering out rare ASVs
+# to be valid, as ASV must keep at least 10 reads in 4 samples (Marnix's standard)
+ITS_filtered<-BT_ITS4#... but first let's save the non-filtered phyloseq object in separate
+otu_table(ITS_filtered) <- otu_table(ITS_filtered)[which (rowSums(otu_table(ITS_filtered)) > 10),] 
+ITS_filtered <- filter_taxa(ITS_filtered, function(x) sum(x >= 1) >= (4), TRUE) 
+hist(sample_sums(ITS_filtered))
+sum(otu_table(ITS_filtered))
+hist(sample_sums(BT_ITS4))
+sum(otu_table(BT_ITS4))
+summarize_phyloseq(BT_ITS4) ##description of reads
+summarize_phyloseq(ITS_filtered)
+
+#rarefy the data for alpha diversity
+set.seed(100)
+min(sample_sums(ITS_filtered))
+data.frame(colSums(otu_table(ITS_filtered)))
+
+ITS_filtered_rarefied = rarefy_even_depth(ITS_filtered, 
+                                             sample.size = min(sample_sums(ITS_filtered)), 
+                                             rngseed = FALSE, replace = TRUE, 
+                                             trimOTUs = TRUE, verbose = TRUE) 
+
+otu_table(ITS_filtered_rarefied) <- otu_table(ITS_filtered_rarefied)[which
+                                                                           (rowSums(otu_table(ITS_filtered_rarefied)) >= 1),]
+ITS_filtered_rarefied # no ASV lost, no samples lost
+colSums(otu_table(ITS_filtered_rarefied))
+any(taxa_sums(ITS_filtered_rarefied) == 0)
+sum(otu_table(ITS_filtered))
+sum(otu_table(ITS_filtered_rarefied))
+
+##save RDS file
+saveRDS(ITS_filtered_rarefied, "D:/Botrytis stress/ITS amplicon/ITS_filtered_rarefied1.rds")
