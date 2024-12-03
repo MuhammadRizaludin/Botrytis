@@ -3,7 +3,10 @@ library(vegan)
 library(tidyverse)
 library(microbiome
 
-##phyloseq object
+##load .rds file
+BT_ITS4 <-readRDS("D:/Botrytis stress/ITS amplicon/BT_ITS4.rds")
+
+##load phyloseq object
 BT_ITS4
 
 #Filtering out rare ASVs
