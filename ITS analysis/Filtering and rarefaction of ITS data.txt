@@ -1,3 +1,11 @@
+library(phyloseq)
+library(vegan)
+library(tidyverse)
+library(microbiome
+
+##phyloseq object
+BT_ITS4
+
 #Filtering out rare ASVs
 # to be valid, as ASV must keep at least 10 reads in 4 samples (Marnix's standard)
 ITS_filtered<-BT_ITS4#... but first let's save the non-filtered phyloseq object in separate
