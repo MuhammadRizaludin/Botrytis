@@ -1,0 +1,182 @@
+##load library
+library(microViz)
+library(phyloseq)
+library(metagenomeSeq)
+library(ALDEx2)
+library(pairwiseAdonis)
+library(compositions)
+
+##phyloseq object
+ITS_filtered  ##all without bulk substraction 
+ITS_significant ##with bulk substraction, enriched in rhizosphere and rhizoplane
+ITS_significant_subset <- ITS_significant ##assign to a new name
+
+
+#MDS/PCoA plot with aitchison distance (Microviz package) for all data including bulk
+ITS_filtered %>% 
+  tax_transform("identity", rank = NA) %>% # don't transform!
+  dist_calc("aitchison") %>% 
+  ord_calc("PCoA") %>% 
+  ord_plot(alpha = 0.85, size = 6, shape= 17, color = "compartment") +
+  scale_color_manual(values = c("#994F00","#40B0A6", "#5D3A9B")) +
+  scale_fill_discrete(name = "compartment", labels = c("bulk", "rhizosphere", "rhizoplane")) +
+  theme(panel.border = element_rect(color='black', fill = NA, size = 0.75), 
+        panel.grid.major = element_blank(),
+        axis.text.x = element_text(face= "bold", color="black", size= 11),
+        axis.title.x = element_text(face= "bold",color="black", size=11),
+        axis.title.y = element_text(face= "bold",color="black", size=11),
+        axis.text.y = element_text(face= "bold", color="black", size= 11),
+        legend.text = element_text(face= "bold", color="black", size= 11),
+        legend.title = element_text(face= "bold", color="black", size= 11),
+        strip.text.x = element_text(size = 11, face = "bold"),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+
+#permanova test
+OTU_ITS = otu_table(ITS_filtered)
+meta_ITS = sample_data(ITS_filtered)
+metadata_ITS<- as(sample_data(ITS_filtered), "data.frame")
+## CRL (centered-log ratio) data transformation
+OTU_ITS_PSEU <- OTU_ITS+0.5
+CLR_ITS <- apply(OTU_ITS_PSEU,2,clr)
+CLR_ITSt =t(CLR_ITS)
+## ADONIS analysis based on Aitchison distance matrix 
+dist.clr_ITS <- dist(CLR_ITSt, method = "euclidean")
+
+set.seed(1)
+adonis.At_ITS <- adonis2(dist.clr_ITS~compartment*genotype*treatment, perm = 999, data = metadata_ITS, contr.unordered = "contr.sum")
+set.seed(5.1)
+pairwise.adonis(dist.clr_ITS, metadata_ITS$compartment, p.adjust.m='BH', perm = 999) 
+
+
+##PCoA (aitchison distance) of fungal community enriched in rhizosphere and rhizoplane
+##Subset for only rhizosphere and rhizoplane 
+(ITS_filtered_subset<-subset_samples(ITS_significant_subset, compartment%in% c("2_rhizoplane", "1_rhizosphere")))
+metadata_ITS_filtered_subset <- as(sample_data(ITS_significant_subset), "data.frame") ##check metadata
+
+#create MDS/PCoA for the filtered ITS
+ITS_filtered_subset %>%
+  tax_transform(rank = NA, trans = "identity") %>%
+  dist_calc("aitchison") %>%
+  ord_calc(method = "PCoA") %>%
+  ord_plot(size= "genotype", shape="compartment", color = "treatment", stroke=1.5) +
+  scale_color_manual(values = c("#4d918f", "red")) +
+  scale_size_manual(values = c(3,6)) +
+  scale_shape_manual(values= c(2,17)) +
+  theme(panel.border = element_rect(color='black', fill = NA, size = 0.75), 
+        panel.grid.major = element_blank(),
+        axis.text.x = element_text(face= "bold", color="black", size= 11),
+        axis.title.x = element_text(face= "bold",color="black", size=11),
+        axis.title.y = element_text(face= "bold",color="black", size=11),
+        axis.text.y = element_text(face= "bold", color="black", size= 11),
+        legend.text = element_text(face= c("bold", "italic"), color="black", size= 11),
+        legend.title = element_text(face= "bold", color="black", size= 11),
+        strip.text.x = element_text(size = 11, face = "bold"),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+
+#permanova test
+OTU_ITS_sig_sub = otu_table(ITS_significant_subset)
+metadata_ITS_signif_subset <- as(sample_data(ITS_significant_subset), "data.frame") 
+## CRL (centered-log ratio) data transformation
+OTU_ITS_sig_sub_pseu <- OTU_ITS_sig_sub+0.5
+CLR_ITS_sig_sub <- apply(OTU_ITS_sig_sub_pseu,2,clr)
+CLR_ITSt_sig_sub =t(CLR_ITS_sig_sub)
+## ADONIS analysis based on Aitchison distance matrix 
+dist.clr_ITS_sig_sub <- dist(CLR_ITSt_sig_sub, method = "euclidean")
+dist.clr_ITS_sig_sub_nn <- dist(CLR_ITSt_sig_sub)
+
+set.seed(1) ##with euclidean
+adonis.At_ITS_sig_sub <- adonis2(dist.clr_ITS_sig_sub ~compartment*genotype*treatment, perm = 999, data = metadata_ITS_signif_subset, contr.unordered = "contr.sum")
+set.seed(2) ##without euclidean just clr transformed
+adonis.At_ITS_sig_sub_nn <- adonis2(dist.clr_ITS_sig_sub_nn ~compartment*genotype*treatment, perm = 999, data = metadata_ITS_signif_subset, contr.unordered = "contr.sum")
+set.seed(5.1)
+pairwise.adonis(dist.clr_ITS, metadata_ITS$compartment, p.adjust.m='BH', perm = 999) 
+
+
+
+##subset for only rhizoplane
+(ITS_significant_subset1<-subset_samples(ITS_significant_subset, compartment%in% c("2_rhizoplane")))
+metadata_ITS_signif_subset1 <- as(sample_data(ITS_significant_subset1), "data.frame") ##check metadata
+
+##create PCoA/MDS plot
+ITS_significant_subset1 %>%
+  tax_transform(rank = NA, trans = "identity") %>%
+  dist_calc("aitchison") %>%
+  ord_calc(method = "PCoA") %>%
+  ord_plot(size="genotype", color = "treatment", shape=17) +
+  scale_color_manual(values = c("#4d918f", "red")) +
+  scale_size_manual(values = c(3,6)) +
+  theme(panel.border = element_rect(color='black', fill = NA, size = 0.75), 
+        panel.grid.major = element_blank(),
+        axis.text.x = element_text(face= "bold", color="black", size= 11),
+        axis.title.x = element_text(face= "bold",color="black", size=11),
+        axis.title.y = element_text(face= "bold",color="black", size=11),
+        axis.text.y = element_text(face= "bold", color="black", size= 11),
+        legend.text = element_text(face= c("bold", "italic"), color="black", size= 11),
+        legend.title = element_text(face= "bold", color="black", size= 11),
+        strip.text.x = element_text(size = 11, face = "bold"),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+
+
+
+#permanova test 
+OTU_ITS_sig_sub1 = otu_table(ITS_significant_subset1)
+metadata_ITS_signif_subset1 <- as(sample_data(ITS_significant_subset1), "data.frame") 
+## CRL (centered-log ratio) data transformation
+OTU_ITS_sig_sub_pseu1 <- OTU_ITS_sig_sub1 +0.5
+CLR_ITS_sig_sub1 <- apply(OTU_ITS_sig_sub_pseu1,2,clr)
+CLR_ITSt_sig_sub1 =t(CLR_ITS_sig_sub1)
+## ADONIS analysis based on Aitchison distance matrix 
+dist.clr_ITS_sig_sub1 <- dist(CLR_ITSt_sig_sub1, method = "euclidean")
+dist.clr_ITS_sig_sub_nu <- dist(CLR_ITSt_sig_sub1)
+
+set.seed(3) ##with euclidean
+adonis.At_ITS_sig_sub1 <- adonis2(dist.clr_ITS_sig_sub1 ~genotype*treatment, perm = 999, data =metadata_ITS_signif_subset1 , contr.unordered = "contr.sum")
+set.seed(3.1) 
+adonis.At_ITS_sig_sub_nu <- adonis2(dist.clr_ITS_sig_sub_nu ~genotype*treatment, perm = 999, data =metadata_ITS_signif_subset1 , contr.unordered = "contr.sum")
+set.seed(3.2)
+pairwise.adonis(dist.clr_ITS_sig_sub_nu, metadata_ITS_signif_subset1$G_T_C, p.adjust.m='BH', perm = 999)
+
+
+##subset for only rhizosphere
+(ITS_significant_subset2<-subset_samples(ITS_significant_subset, compartment%in% c("1_rhizosphere")))
+metadata_signif_subset2 <- as(sample_data(ITS_significant_subset2), "data.frame") ##check metadata
+
+##create mds/PCoA plot
+ITS_significant_subset2 %>%
+  tax_transform(rank = NA, trans = "identity") %>%
+  dist_calc("aitchison") %>%
+  ord_calc(method = "PCoA") %>%
+  ord_plot(size = "genotype", shape=2, color = "treatment", stroke=1.5) +
+  scale_color_manual(values = c("#4d918f", "red")) +
+  scale_size_manual(values=c(3,6))+
+  theme(panel.border = element_rect(color='black', fill = NA, size = 0.75), 
+        panel.grid.major = element_blank(),
+        axis.text.x = element_text(face= "bold", color="black", size= 11),
+        axis.title.x = element_text(face= "bold",color="black", size=11),
+        axis.title.y = element_text(face= "bold",color="black", size=11),
+        axis.text.y = element_text(face= "bold", color="black", size= 11),
+        legend.text = element_text(face= c("bold", "italic"), color="black", size= 11),
+        legend.title = element_text(face= "bold", color="black", size= 11),
+        strip.text.x = element_text(size = 11, face = "bold"),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+
+
+
+#permanova test
+OTU_ITS_sig_sub2 = otu_table(ITS_significant_subset2)
+metadata_ITS_signif_subset2 <- as(sample_data(ITS_significant_subset2), "data.frame") 
+## CRL (centered-log ratio) data transformation
+OTU_ITS_sig_sub_pseu2 <- OTU_ITS_sig_sub2 +0.5
+CLR_ITS_sig_sub2 <- apply(OTU_ITS_sig_sub_pseu2,2,clr)
+CLR_ITSt_sig_sub2 =t(CLR_ITS_sig_sub2)
+## ADONIS analysis based on Aitchison distance matrix 
+dist.clr_ITS_sig_sub2 <- dist(CLR_ITSt_sig_sub2, method = "euclidean")
+dist.clr_ITS_sig_sub2_nu <- dist(CLR_ITSt_sig_sub2)
+
+set.seed(4) ##with euclidean
+adonis.At_ITS_sig_sub2 <- adonis2(dist.clr_ITS_sig_sub2 ~genotype*treatment, perm = 999, data =metadata_ITS_signif_subset2 , contr.unordered = "contr.sum")
+set.seed(4.1) ##only clr 
+adonis.At_ITS_sig_sub2_nu <- adonis2(dist.clr_ITS_sig_sub2_nu ~genotype*treatment, perm = 999, data =metadata_ITS_signif_subset2 , contr.unordered = "contr.sum")
+set.seed(4.2)
+pairwise.adonis(dist.clr_ITS_sig_sub2_nu, metadata_ITS_signif_subset2$G_T_C, p.adjust.m='BH', perm = 999)
+
