@@ -1,0 +1,175 @@
+##set working directory
+setwd("D:/Botrytis stress/ITS amplicon")
+getwd()
+
+library("DESeq2")
+library("pheatmap")
+library(viridis)
+library(phyloseq)
+library(Matrix)
+library("data.table")
+library(RColorBrewer)
+library(ampvis2)
+
+
+##phyloseq object ITS significant
+ITS_significant
+
+##Subset for only rhizoplane CSS normalization
+(DA_ITS_rp_sig<-subset_samples(ITS_significant, compartment%in% c("2_rhizoplane"))) ## rhizoplane samples
+otu_table(DA_ITS_rp_sig) <- otu_table(DA_ITS_rp_sig)[which(rowSums(otu_table(DA_ITS_rp_sig)) >= 1),] 
+metadata_da_sig <- as(sample_data(DA_ITS_rp_sig), "data.frame") ##check if the metadata chosen is correct
+
+##subset for healthy pimpi vs stressed money
+DA_ITS_rp_sig_PM <- subset_samples(DA_ITS_rp_sig, G_T_C %in% c( "3_SP_H_RP" ,"8_SL_S_RP")) 
+
+##subset for healthy money vs stressed pimpi
+DA_ITS_rp_sig_MP <- subset_samples(DA_ITS_rp_sig, G_T_C %in% c( "4_SL_H_RP" ,"7_SP_S_RP"))
+
+# create deseq2 object and run the analysis on treatment differences
+Rp_SP_deseq_ITS_sig <- phyloseq_to_deseq2(subset_samples(DA_ITS_rp_sig, genotype=="S Pimpinellifolium" & compartment=="2_rhizoplane"), ~ treatment)
+Rp_SP_deseq_ITS_sig<- DESeq(Rp_SP_deseq_ITS_sig, test="Wald", fitType="parametric")
+
+Rp_SL_deseq_ITS_sig <- phyloseq_to_deseq2(subset_samples(DA_ITS_rp_sig, genotype=="S Lycopersicum" & compartment=="2_rhizoplane"), ~ treatment)
+Rp_SL_deseq_ITS_sig <- DESeq(Rp_SL_deseq_ITS_sig, test="Wald", fitType="parametric")
+
+
+# create deseq2 object and run the analysis on genotype differences
+Rp_h_deseq_ITS_sig <- phyloseq_to_deseq2(subset_samples(DA_ITS_rp_sig, treatment=="healthy" & compartment=="2_rhizoplane"), ~ genotype)
+Rp_h_deseq_ITS_sig<- DESeq(Rp_h_deseq_ITS_sig, test="Wald", fitType="parametric")
+
+Rp_s_deseq_ITS_sig<- phyloseq_to_deseq2(subset_samples(DA_ITS_rp_sig, treatment=="stressed" & compartment=="2_rhizoplane"), ~ genotype)
+Rp_s_deseq_ITS_sig <- DESeq(Rp_s_deseq_ITS_sig, test="Wald", fitType="parametric")
+
+#create deseq2 object run analysis between HP VS SM
+Rp_PM_deseq_ITS_sig <- phyloseq_to_deseq2(DA_ITS_rp_sig_PM, ~ G_T_C)
+Rp_PM_deseq_ITS_sig<- DESeq(Rp_PM_deseq_ITS_sig, test="Wald", fitType="parametric")
+
+#create deseq2 object run analysis between HM vs SP
+Rp_MP_deseq_ITS_sig <- phyloseq_to_deseq2(DA_ITS_rp_sig_MP, ~ G_T_C)
+Rp_MP_deseq_ITS_sig<- DESeq(Rp_MP_deseq_ITS_sig, test="Wald", fitType="parametric")
+
+##set alpha for significance level
+alpha = 0.05
+
+# make pairwise comparsions on differential abundance for both species and treatment
+#S.pimpinellifolium (healthy vs stressed)
+res_SP = results(Rp_SP_deseq_ITS_sig, contrast=c("treatment", "stressed", "healthy"), cooksCutoff = FALSE)
+sigtab_SP = res_SP[which(res_SP$padj < alpha), ]
+sigtab_SP = cbind(as(sigtab_SP, "data.frame"), as(phyloseq::tax_table(ITS_significant)[rownames(sigtab_SP), ], "matrix"))
+view(sigtab_SP)
+write.csv(sigtab_SP, "D:/Botrytis stress/ITS amplicon/sigtab_SP_treatment.csv", row.names=TRUE)
+
+#S.lycopersicum(healthy  vs stressed)
+res2_SL = results(Rp_SL_deseq_ITS_sig, contrast=c("treatment", "stressed", "healthy"), cooksCutoff = FALSE)
+sigtab2_SL = res2_SL[which(res2_SL$padj < alpha), ]
+sigtab2_SL = cbind(as(sigtab2_SL, "data.frame"), as(phyloseq::tax_table(ITS_significant)[rownames(sigtab2_SL), ], "matrix"))
+view(sigtab2_SL)
+write.csv(sigtab2_SL, "D:/Botrytis stress/ITS amplicon/sigtab_SL_treatment.csv", row.names=TRUE)
+
+#healthy S.lycopersicum (CBM) vs healthy S.pimpinelifolium(CBP)
+res3_SPL = results(Rp_h_deseq_ITS_sig, contrast=c("genotype", "S Pimpinellifolium", "S Lycopersicum"), cooksCutoff = FALSE)
+sigtab3_SPL = res3_SPL[which(res3_SPL$padj < alpha), ]
+sigtab3_SPL = cbind(as(sigtab3_SPL, "data.frame"), as(phyloseq::tax_table(ITS_significant)[rownames(sigtab3_SPL), ], "matrix"))
+View(sigtab3_SPL)
+write.csv(sigtab3_SPL, "D:/Botrytis stress/ITS amplicon/sigtab_CBP_CBM.csv", row.names=TRUE)
+
+#stressed S.lycopersicum (BM) vs stressed  (BP)
+res4_SPL = results(Rp_s_deseq_ITS_sig, contrast=c("genotype", "S Pimpinellifolium", "S Lycopersicum"), cooksCutoff = FALSE)
+sigtab4_SPL = res4_SPL[which(res4_SPL$padj < alpha), ]
+sigtab4_SPL = cbind(as(sigtab4_SPL, "data.frame"), as(phyloseq::tax_table(ITS_significant)[rownames(sigtab4_SPL), ], "matrix"))
+View(sigtab4_SPL)
+write.csv(sigtab4_SPL, "D:/Botrytis stress/ITS amplicon/sigtab_BP_BM.csv", row.names=TRUE)
+
+##healthy S.pimpinellifolium (CBP) vs stressed S.lycopersicum (BM)
+res5_PM = results(Rp_PM_deseq_ITS_sig, contrast=c("G_T_C", "3_SP_H_RP" ,"8_SL_S_RP"), cooksCutoff = FALSE)
+sigtab5_PM = res5_PM[which(res5_PM$padj < alpha), ]
+sigtab5_PM = cbind(as(sigtab5_PM, "data.frame"), as(phyloseq::tax_table(ITS_significant)[rownames(sigtab5_PM), ], "matrix"))
+View(sigtab5_PM)
+write.csv(sigtab5_PM, "D:/Botrytis stress/ITS amplicon/sigtab_CBP_BM.csv", row.names=TRUE)
+
+##healthy S.lyopersicum (CBM) vs stressed S.pimpinellifolium (BP)
+res6_MP = results(Rp_MP_deseq_ITS_sig, contrast=c("G_T_C", "4_SL_H_RP" ,"7_SP_S_RP"), cooksCutoff = FALSE)
+sigtab6_MP = res6_MP[which(res6_MP$padj < alpha), ]
+sigtab6_MP = cbind(as(sigtab6_MP, "data.frame"), as(phyloseq::tax_table(ITS_significant)[rownames(sigtab6_MP), ], "matrix"))
+View(sigtab6_MP)
+write.csv(sigtab6_MP, "D:/Botrytis stress/ITS amplicon/sigtab_CBM_BP.csv", row.names=TRUE)
+
+##extract the ASV names who share the same names and add the unique ones in the list
+select_SP_ITS <- rownames(sigtab_SP)
+select_SL_ITS <- rownames(sigtab2_SL)
+select_type_h_ITS <- rownames(sigtab3_SPL)
+select_type_s_ITS <- rownames(sigtab4_SPL)
+select_GTC_PM <- rownames(sigtab5_PM)
+select_GTC_MP <-rownames(sigtab6_MP)
+Common_ASV_ITS_rp <- unique(c(select_SP_ITS,select_SL_ITS,select_type_h_ITS,select_type_s_ITS,select_GTC_PM, select_GTC_MP ))
+
+##log transformation
+nt_ITS<- normTransform(Rp_SL_deseq_ITS_sig)
+nt1_ITS <- normTransform(Rp_SP_deseq_ITS_sig)# defaults to log2(x+1) ##transform from deseq2 package
+log2.norm.counts_SL_ITS <- assay(nt_ITS)[Common_ASV_ITS_rp, ]
+log2.norm.counts_SP_ITS <- assay(nt1_ITS)[Common_ASV_ITS_rp, ]
+
+##merge 
+#merged_RP_ITS<-merge(log2.norm.counts_SL_ITS,log2.norm.counts_SP_ITS, by=0)%>%column_to_rownames(var="Row.names")
+#write.csv(merged_RP_ITS, "D:/Botrytis stress/ITS amplicon/ITS_DA_rp.csv", row.names=TRUE)
+
+merged_RP_ITS2<-read.csv("D:/Botrytis stress/ITS amplicon/ITS_DA_rp.csv",  header = TRUE)
+##edited manually via excel file
+
+#define the row names from the x column
+row.names(merged_RP_ITS2) <- merged_RP_ITS2$X
+head(merged_RP_ITS2)
+
+#remove the column since it is now used as a row name
+merged_RP_ITS2 <- merged_RP_ITS2[,-1]
+head(merged_RP_ITS2)
+view(merged_RP_ITS2)
+
+#extract metadata
+df_SL_ITS <- as.data.frame(colData(Rp_SL_deseq_ITS_sig)[,c("treatment", "genotype")])
+df_SP_ITS <- as.data.frame(colData(Rp_SP_deseq_ITS_sig)[,c("treatment", "genotype")])
+df_comb_ITS<-rbind(df_SL_ITS,df_SP_ITS)
+
+##extract taxonomy
+Tax_table_ITS_rp <- phyloseq::tax_table(ITS_significant)  ##extract taxonomic table
+Tax_table_heatmap_ITS_rp <- Tax_table_ITS_rp[rownames(merged_RP_ITS2),]
+df_row_ITS_rp <- as.data.frame((Tax_table_heatmap_ITS_rp)[,c("Kingdom","Phylum","Class","Order","Family", "Genus", "Species")])
+head(df_row_ITS_rp)
+view(df_row_ITS_rp)
+write.csv(df_row_ITS_rp, "D:/Botrytis stress/ITS amplicon/df_row_ITS_rp.csv", row.names=TRUE)
+##change manually via excel to include the asv number in  the end of ASV taxonomy name (i.e: "Penicillium_ASV191")
+####important
+df_row_ITS_rp1<-read.csv("D:/Botrytis stress/ITS amplicon/df_row_ITS_rp.csv") ##already editted
+
+#create heatmap
+library(RColorBrewer)
+library(pheatmap)
+library(pals)
+
+Rownames_heatmap_ITS_rp <- df_row_ITS_rp1$Genus
+breaksList = seq(0, 11, by = 0.1) # Determines axis and color scale
+cell_width = 12  # Width of cells
+cell_height = 12# Height of cells
+display_numbers = F # Whether to show numbers in cells
+color = rev(ocean.algae(120))
+ASV_Heatmap_rp <- pheatmap(merged_RP_ITS2,
+                           #filename = "Figures/ITS_heatmap_green_ASV.pdf",
+                           annotation_col = df_comb_ITS,
+                           annotation_names_col = T,
+                           gaps_col =  cumsum(c(5,5,5,5)),
+                           main = "differential rhizoplane fungal community",
+                           labels_row = Rownames_heatmap_ITS_rp,
+                           fontsize_row = 10, 
+                           fontsize_col = 10,
+                           fontsize = 9,
+                           border_color = F,
+                           angle_col = 45,
+                           cluster_rows = T,
+                           cluster_cols = F,
+                           na_col = F,
+                           cellwidth = cell_width,
+                           cellheight = cell_height,
+                           display_numbers = display_numbers,
+                           color = color,
+                           breaks = breaksList) # Sets the breaks of the color scale as in breaksList
