@@ -1,0 +1,181 @@
+##setworking directory
+setwd("D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024")
+getwd()
+
+library("DESeq2")
+library("pheatmap")
+library(viridis)
+library(phyloseq)
+library(Matrix)
+library("data.table")
+library(RColorBrewer)
+library(ampvis2)
+
+#phyloseq object 16S significant
+physeq_significant
+
+##Subset for only rhizoplane 
+(DA_16S_rp_sig<-subset_samples(physeq_significant, compartment%in% c("2_rhizoplane"))) ## rhizoplane samples
+otu_table(DA_16S_rp_sig) <- otu_table(DA_16S_rp_sig)[which(rowSums(otu_table(DA_16S_rp_sig)) >= 1),] 
+metadata_da_sig <- as(sample_data(DA_16S_rp_sig), "data.frame") ##check if the metadata chosen is correct
+
+##subset for healthy pimpi vs stressed money
+DA_16S_rp_sig_PM <- subset_samples(DA_16S_rp_sig, G_T_C %in% c( "3_SP_H_RP" ,"8_SL_S_RP")) 
+
+##subset for healthy money vs stressed pimpi
+DA_16S_rp_sig_MP <- subset_samples(DA_16S_rp_sig, G_T_C %in% c( "4_SL_H_RP" ,"7_SP_S_RP"))
+
+# create deseq2 object and run the analysis on treatment differences
+Rp_SP_deseq_16S_sig <- phyloseq_to_deseq2(subset_samples(DA_16S_rp_sig, genotype=="S Pimpinellifolium" & compartment=="2_rhizoplane"), ~ treatment)
+Rp_SP_deseq_16S_sig<- DESeq(Rp_SP_deseq_16S_sig, test="Wald", fitType="parametric")
+
+Rp_SL_deseq_16S_sig <- phyloseq_to_deseq2(subset_samples(DA_16S_rp_sig, genotype=="S Lycopersicum" & compartment=="2_rhizoplane"), ~ treatment)
+Rp_SL_deseq_16S_sig <- DESeq(Rp_SL_deseq_16S_sig, test="Wald", fitType="parametric")
+
+# create deseq2 object and run the analysis on genotype differences
+Rp_h_deseq_16S_sig <- phyloseq_to_deseq2(subset_samples(DA_16S_rp_sig, treatment=="healthy" & compartment=="2_rhizoplane"), ~ genotype)
+Rp_h_deseq_16S_sig<- DESeq(Rp_h_deseq_16S_sig, test="Wald", fitType="parametric")
+
+Rp_s_deseq_16S_sig<- phyloseq_to_deseq2(subset_samples(DA_16S_rp_sig, treatment=="stressed" & compartment=="2_rhizoplane"), ~ genotype)
+Rp_s_deseq_16S_sig <- DESeq(Rp_s_deseq_16S_sig, test="Wald", fitType="parametric")
+
+#create deseq2 object run analysis between HP VS SM
+Rp_PM_deseq_16S_sig <- phyloseq_to_deseq2(DA_16S_rp_sig_PM, ~ G_T_C)
+Rp_PM_deseq_16S_sig<- DESeq(Rp_PM_deseq_16S_sig, test="Wald", fitType="parametric")
+
+#create deseq2 object run analysis between HM vs SP
+Rp_MP_deseq_16S_sig <- phyloseq_to_deseq2(DA_16S_rp_sig_MP, ~ G_T_C)
+Rp_MP_deseq_16S_sig<- DESeq(Rp_MP_deseq_16S_sig, test="Wald", fitType="parametric")
+
+##set alpha for significance level
+alpha = 0.05
+
+# make pairwise comparsions on differential abundance for both species and treatment
+
+#healthy vs stressed rhizoplane S.pimpi
+res_SP = results(Rp_SP_deseq_16S_sig, contrast=c("treatment", "stressed", "healthy"), cooksCutoff = FALSE)
+sigtab_SP = res_SP[which(res_SP$padj < alpha), ]
+sigtab_SP = cbind(as(sigtab_SP, "data.frame"), as(phyloseq::tax_table(physeq_significant)[rownames(sigtab_SP), ], "matrix"))
+view(sigtab_SP)
+write.csv(sigtab_SP, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/ Rp_CBP vs RP_BP.csv", row.names=TRUE)
+
+#healthy vs stressed rhizoplane S.Money
+res2_SL = results(Rp_SL_deseq_16S_sig, contrast=c("treatment", "stressed", "healthy"), cooksCutoff = FALSE)
+sigtab2_SL = res2_SL[which(res2_SL$padj < alpha), ]
+sigtab2_SL = cbind(as(sigtab2_SL, "data.frame"), as(phyloseq::tax_table(physeq_significant)[rownames(sigtab2_SL), ], "matrix"))
+view(sigtab2_SL)
+write.csv(sigtab2_SL, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/ Rp_CBM vs RP_BM.csv", row.names=TRUE)
+
+#rhizoplane of healthy pimpi vs healthy money
+res3_SPL = results(Rp_h_deseq_16S_sig, contrast=c("genotype", "S Pimpinellifolium", "S Lycopersicum"), cooksCutoff = FALSE)
+sigtab3_SPL = res3_SPL[which(res3_SPL$padj < alpha), ]
+sigtab3_SPL = cbind(as(sigtab3_SPL, "data.frame"), as(phyloseq::tax_table(physeq_significant)[rownames(sigtab3_SPL), ], "matrix"))
+View(sigtab3_SPL)
+write.csv(sigtab3_SPL, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/ Rp_CBP vs RP_CBM.csv", row.names=TRUE)
+
+#rhizoplane of stressed pimpi vs stressed money
+res4_SPL = results(Rp_s_deseq_16S_sig, contrast=c("genotype", "S Pimpinellifolium", "S Lycopersicum"), cooksCutoff = FALSE)
+sigtab4_SPL = res4_SPL[which(res4_SPL$padj < alpha), ]
+sigtab4_SPL = cbind(as(sigtab4_SPL, "data.frame"), as(phyloseq::tax_table(physeq_significant)[rownames(sigtab4_SPL), ], "matrix"))
+View(sigtab4_SPL)
+write.csv(sigtab4_SPL, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/ Rp_BP vs RP_BM.csv", row.names=TRUE)
+
+#rhizoplane of healthy pimpi vs stressed money
+res5_PM = results(Rp_PM_deseq_16S_sig, contrast=c("G_T_C", "3_SP_H_RP" ,"8_SL_S_RP"), cooksCutoff = FALSE)
+sigtab5_PM = res5_PM[which(res5_PM$padj < alpha), ]
+sigtab5_PM = cbind(as(sigtab5_PM, "data.frame"), as(phyloseq::tax_table(physeq_significant)[rownames(sigtab5_PM), ], "matrix"))
+View(sigtab5_PM)
+write.csv(sigtab5_PM, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/ Rp_CBP vs RP_BM.csv", row.names=TRUE)
+
+#rhizoplane of healthy money vs stressed pimpi
+res6_MP = results(Rp_MP_deseq_16S_sig, contrast=c("G_T_C", "4_SL_H_RP" ,"7_SP_S_RP"), cooksCutoff = FALSE)
+sigtab6_MP = res6_MP[which(res6_MP$padj < alpha), ]
+sigtab6_MP = cbind(as(sigtab6_MP, "data.frame"), as(phyloseq::tax_table(physeq_significant)[rownames(sigtab6_MP), ], "matrix"))
+View(sigtab6_MP)
+write.csv(sigtab6_MP, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/ Rp_CBM vs RP_BP.csv", row.names=TRUE)
+
+##extract the ASV names who share the same names and add the unique ones in the list
+select_SP_16S <- rownames(sigtab_SP)
+select_SL_16S <- rownames(sigtab2_SL)
+select_type_h_16S <- rownames(sigtab3_SPL)
+select_type_s_16S <- rownames(sigtab4_SPL)
+select_GTC_PM <- rownames(sigtab5_PM)
+select_GTC_MP <-rownames(sigtab6_MP)
+
+Common_ASV_16S_rp <- unique(c(select_SP_16S,select_SL_16S,select_type_h_16S,select_type_s_16S,select_GTC_PM, select_GTC_MP ))
+
+##log transformation
+nt_16S<- normTransform(Rp_SL_deseq_16S_sig)
+nt1_16S <- normTransform(Rp_SP_deseq_16S_sig)# defaults to log2(x+1) ##transform from deseq
+log2.norm.counts_SL_16S <- assay(nt_16S)[Common_ASV_16S_rp, ]
+log2.norm.counts_SP_16S <- assay(nt1_16S)[Common_ASV_16S_rp, ]
+
+##merge 
+merged_RP_16S<-merge(log2.norm.counts_SL_16S,log2.norm.counts_SP_16S, by=0)%>%
+  column_to_rownames(var="Row.names")
+##check the csv
+write.csv(merged_RP_16S,"D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/16S_DA_rp.csv", row.names=TRUE)
+
+##manually edit in the excel file
+merged_RP_16S2<-read.csv("D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/16S_DA_rp1.csv",  header = TRUE)
+
+#define the row names from the x column
+row.names(merged_RP_16S2) <- merged_RP_16S2$X
+head(merged_RP_16S2)
+
+#remove the column since it is now used as a row name
+merged_RP_16S2 <- merged_RP_16S2[,-1]
+head(merged_RP_16S2)
+view(merged_RP_16S2)
+
+
+##extract the variables/factors
+df_SL_16S <- as.data.frame(colData(Rp_SL_deseq_16S_sig)[,c("treatment", "genotype")])
+df_SP_16S <- as.data.frame(colData(Rp_SP_deseq_16S_sig)[,c("treatment", "genotype")])
+df_comb_16S<-rbind(df_SL_16S,df_SP_16S)
+
+
+##extract the taxonomic table of the common asvs
+Tax_table_16S_rp <- phyloseq::tax_table(physeq_significant)  ##extract taxonomic table
+Tax_table_heatmap_16S_rp <- Tax_table_16S_rp[rownames(merged_RP_16S2),]
+df_row_16S_rp <- as.data.frame((Tax_table_heatmap_16S_rp)[,c("Kingdom","Phylum","Class","Order","Family", "Genus")])
+head(df_row_16S_rp)
+view(df_row_16S_rp)
+
+##check for the taxonomy
+write.csv(df_row_16S_rp, "D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/df_row_16S_rp.csv", row.names=TRUE)
+
+##manually edit the taxonomy in excel to have asv number behind the taxa name
+df_row_16S_rp1<-read.csv("D:/Botrytis stress/Botrytis stress microbiome/result/08-04-2024/df_row_16S_rp.csv")
+
+
+library(RColorBrewer)
+library(pheatmap)
+library(pals)
+
+Rownames_heatmap_16S_rp <- df_row_16S_rp1$Genus
+breaksList = seq(0, 11, by = 0.1) # Determines axis and color scale
+cell_width =12 # Width of cells
+cell_height = 12 # Height of cells
+display_numbers = F # Whether to show numbers in cells
+color = rev(ocean.algae(120))
+ASV_Heatmap_rp <- pheatmap(merged_RP_16S2,
+                           #filename = "Figures/ITS_heatmap_green_ASV.pdf",
+                           annotation_col = df_comb_16S,
+                           annotation_names_col = T,
+                           gaps_col =  cumsum(c(5,5,5,5)),
+                           main = "differential rhizoplane bacterial community",
+                           labels_row = Rownames_heatmap_16S_rp,
+                           fontsize_row = 10, 
+                           fontsize_col = 10,
+                           fontsize = 9,
+                           border_color = F,
+                           angle_col = 45,
+                           cluster_rows = T,
+                           cluster_cols = F,
+                           na_col = F,
+                           cellwidth = cell_width,
+                           cellheight = cell_height,
+                           display_numbers = display_numbers,
+                           color = color,
+                           breaks = breaksList) # Sets the breaks of the color scale as in breaksList
