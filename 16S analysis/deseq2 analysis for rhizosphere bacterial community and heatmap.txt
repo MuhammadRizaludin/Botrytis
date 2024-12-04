@@ -1,3 +1,13 @@
+##load library
+library("DESeq2")
+library("pheatmap")
+library(viridis)
+library(phyloseq)
+library(Matrix)
+library("data.table")
+library(RColorBrewer)
+library(ampvis2)
+
 ##rhizosphere
 physeq_significant <- readRDS("/physeq_significant.rds")
 
